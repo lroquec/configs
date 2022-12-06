@@ -1,0 +1,16 @@
+---
+extends: default
+
+rules:
+  truthy:
+    allowed-values:
+      - 'true'
+      - 'false'
+      - 'yes'
+      - 'no'
+  indentation:
+    level: warning
+    indent-sequences: consistent
+  line-length: disable
+  comments-indentation: disable
+  comments: disable

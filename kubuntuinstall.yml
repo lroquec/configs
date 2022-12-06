@@ -1,0 +1,172 @@
+---
+- name "Install packeges init"
+  hosts: localhost
+  become: true
+  connection: local
+  tasks:
+
+    - name: Add specified repository into sources list using specified filename
+      ansible.builtin.apt_repository:
+        repo: deb http://dl.google.com/linux/chrome/deb/ stable main
+        state: present
+        filename: google-chrome
+
+    - name: "Add vscode apt key"
+      ansible.builtin.apt_key:
+        url: https://packages.microsoft.com/keys/microsoft.asc
+        state: present
+  
+    - name: "Add vivaldi apt key"
+      ansible.builtin.apt_key:
+        url: https://repo.vivaldi.com/archive/linux_signing_key.pub
+        state: present
+
+    - name: "Add vscode repo"
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main"
+        state: present
+
+    - name: "Add vivaldi repo"
+      ansible.builtin.apt_repository:
+        repo: "deb https://repo.vivaldi.com/archive/deb/ stable main"
+        state: present
+
+    - name: "Add copyq repo"
+      ansible.builtin.apt_repository:
+        repo: 'ppa:hluk/copyq'
+        state: present
+
+    - name: "Add vagrant repo key"
+      ansible.builtin.apt_key:
+        url: https://apt.releases.hashicorp.com/gpg
+        state: present
+
+    - name: "Add vagrant repo"
+      ansible.builtin.apt_repository:
+        repo: "deb https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+        state: present
+
+    - name: "Update repos first"
+      ansible.builtin.apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+
+    - name: "Update system"
+      ansible.builtin.apt: upgrade=dist force_apt_get=yes
+
+    - name: "Check if reboot is needed"
+      register: reboot_required_file
+      stat: path=/var/run/reboot-required get_md5=no
+
+    - name: "Reboot system"
+      ansible.builtin.reboot:
+        msg: "Reboot initiated by Ansible due to kernel updates"
+        connect_timeout: 5
+        reboot_timeout: 300
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime
+      when: reboot_required_file.stat.exists
+
+    - name: "Now install my defaukt packages"
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        update_cache: yes
+      loop:
+        - vim
+        - curl
+        - unzip
+        - wget
+        - git
+        - tldr
+        - flatpak
+        - build-essential
+        - software-properties-common
+        - apt-transport-https
+        - code
+        - net-tools
+        - tcpdump
+        - zsh
+        - fonts-powerline
+        - copyq
+        - google-chrome
+        - gnupg2
+        - vivaldi-stable
+        - ubuntu-restricted-extras
+        - vlc
+        - python3-pip
+        - python3.8
+        - python3.8-dev
+        - libavcodec-extra
+        - bash-completion
+        - gimp
+        - virtualbox
+        - vagrant
+        - jq
+
+    - name: Check Docker Installed
+      shell: which docker
+      register: docker_check
+      ignore_errors: yes
+
+      # will install the latest version of docker
+    - name: Install Docker
+      shell: curl https://get.docker.com/ | sh
+      when: docker_check.rc == 1
+
+    - name: Setup Docker
+      shell: |
+        usermod -aG docker "{{host_username}}"
+        systemctl enable docker
+        systemctl start docker
+      when: docker_check.rc == 1
+
+    - name: Install docker compose
+      pip:
+        name: docker-compose
+        state: present
+        executable: pip3
+
+    - name: Install vimplug for vim plugins
+      shell: curl -fLo ~/.vim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+      become: no
+      ignore_errors: yes
+
+    - name: Install vim plugins
+      shell: vim +PlugInstall +qall
+      become: no
+      ignore_errors: yes
+
+    - name: Disable chsh authentication
+      lineinfile:
+        dest: /etc/pam.d/chsh
+        regexp: '.*pam_shells\.so'
+        line: 'auth sufficient  pam_shells.so'
+
+    - name: Install oh-my-zsh
+      shell: sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
+      become: no
+
+    - name: Set zsh as default shell
+      shell: chsh -s $(which zsh)
+      become: no
+
+    - name: Re-enable chsh authentication
+      lineinfile:
+        dest: /etc/pam.d/chsh
+        regexp: '.*pam_shells\.so'
+        line: 'auth required  pam_shells.so'
+
+    - name: Clone dotfiles
+      git:
+        repo: https://github.com/neetjn/dotfiles.git
+        dest: /tmp/dotfiles
+        version: master
+        become: no
+
+    - name: Copy dotfiles
+      shell: |
+        cp -r /tmp/dotfiles/* "{{home_directory}}"
+        cp -r /tmp/dotfiles/.* "{{home_directory}}"
+        rm -rf "{{home_directory}}/.git"
+        chown -R "{{host_username}}:{{host_username}} {{home_directory}}"
+        chown -R "{{host_username}}:{{host_username}} {{home_directory}}/.*"
+      ignore_errors: yes
