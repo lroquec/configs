@@ -1,13 +1,15 @@
 ---
-- name "Install packeges init"
-  hosts: localhost
+- hosts: localhost
   become: true
-  connection: local
   tasks:
+    - name: "Add chrome apt key"
+      ansible.builtin.get_url:
+        url: https://dl-ssl.google.com/linux/linux_signing_key.pub
+        dest: /etc/apt/keyrings/chrome.asc
 
     - name: Add specified repository into sources list using specified filename
       ansible.builtin.apt_repository:
-        repo: deb http://dl.google.com/linux/chrome/deb/ stable main
+        repo: 'deb [arch=amd64 signed-by=/etc/apt/keyrings/chrome.asc] http://dl.google.com/linux/chrome/deb/ stable main'
         state: present
         filename: google-chrome
 
@@ -15,11 +17,11 @@
       ansible.builtin.apt_key:
         url: https://packages.microsoft.com/keys/microsoft.asc
         state: present
-  
+
     - name: "Add vivaldi apt key"
-      ansible.builtin.apt_key:
+      ansible.builtin.get_url:
         url: https://repo.vivaldi.com/archive/linux_signing_key.pub
-        state: present
+        dest: /etc/apt/keyrings/vivaldi.asc
 
     - name: "Add vscode repo"
       ansible.builtin.apt_repository:
@@ -28,7 +30,7 @@
 
     - name: "Add vivaldi repo"
       ansible.builtin.apt_repository:
-        repo: "deb https://repo.vivaldi.com/archive/deb/ stable main"
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/vivaldi.asc] https://repo.vivaldi.com/archive/deb/ stable main"
         state: present
 
     - name: "Add copyq repo"
@@ -37,13 +39,13 @@
         state: present
 
     - name: "Add vagrant repo key"
-      ansible.builtin.apt_key:
+      ansible.builtin.get_url:
         url: https://apt.releases.hashicorp.com/gpg
-        state: present
+        dest: /etc/apt/keyrings/vagrant.asc
 
     - name: "Add vagrant repo"
       ansible.builtin.apt_repository:
-        repo: "deb https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/vagrant.asc] https://apt.releases.hashicorp.com impish main"
         state: present
 
     - name: "Update repos first"
@@ -66,7 +68,7 @@
         test_command: uptime
       when: reboot_required_file.stat.exists
 
-    - name: "Now install my defaukt packages"
+    - name: "Now install my default packages"
       ansible.builtin.apt:
         name: "{{ item }}"
         update_cache: yes
@@ -87,20 +89,26 @@
         - zsh
         - fonts-powerline
         - copyq
-        - google-chrome
+        - google-chrome-stable
         - gnupg2
         - vivaldi-stable
         - ubuntu-restricted-extras
         - vlc
         - python3-pip
-        - python3.8
-        - python3.8-dev
         - libavcodec-extra
         - bash-completion
         - gimp
         - virtualbox
         - vagrant
         - jq
+        - libreoffice
+        - htop
+        - thunderbird
+        - preload
+        - tlp
+        - tlp-rdw
+        - bleachbit
+        - kitty
 
     - name: Check Docker Installed
       shell: which docker
@@ -114,7 +122,7 @@
 
     - name: Setup Docker
       shell: |
-        usermod -aG docker "{{host_username}}"
+        usermod -aG docker "{{ host_username }}"
         systemctl enable docker
         systemctl start docker
       when: docker_check.rc == 1
@@ -158,37 +166,36 @@
     - name: Clone dotfiles
       git:
         repo: https://github.com/lroquec/configs.git
-        dest: "{{home_directory}}"
+        dest: "{{ home_directory }}"
         version: master
         become: no
 
     - name: Creating a symlink for vim
       ansible.builtin.file:
-        src: "{{home_directory}}/configs/vimrc"
-        dest: "{{home_directory}}/.vimrc"
+        src: '{{ home_directory }}/configs/vimrc'
+        dest: '{{ home_directory }}/.vimrc'
         state: link
 
     - name: Creating a symlink for vim
       ansible.builtin.file:
-        src: "{{home_directory}}/configs/vim"
-        dest: "{{home_directory}}/.vim"
-        state: link
-        
-    - name: Creating a symlink for vim
-      ansible.builtin.file:
-        src: "{{home_directory}}/configs/oh-my-zsh"
-+       dest: "{{home_directory}}/.oh-my-zsh"
-+       state: link
-
-    - name: Creating a symlink for vim
-      ansible.builtin.file:
-        src: "{{home_directory}}/configs/.zprofile"
-        dest: "{{home_directory}}/.zprofile"
+        src: '{{ home_directory }}/configs/vim'
+        dest: '{{ home_directory }}/.vim'
         state: link
 
     - name: Creating a symlink for vim
       ansible.builtin.file:
-        src: "{{home_directory}}/configs/.zshrc"
-+       dest: "{{home_directory}}/.zshrc"
-+       state: link
+        src: '{{ home_directory }}/configs/oh-my-zsh'
+        dest: '{{ home_directory }}/.oh-my-zsh'
+        state: link
 
+    - name: Creating a symlink for vim
+      ansible.builtin.file:
+        src: '{{ home_directory }}/configs/.zprofile'
+        dest: '{{ home_directory }}/.zprofile'
+        state: link
+
+    - name: Creating a symlink for vim
+      ansible.builtin.file:
+        src: '{{ home_directory }}/configs/.zshrc'
+        dest: '{{ home_directory }}/.zshrc'
+        state: link
