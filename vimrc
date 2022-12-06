@@ -1,4 +1,4 @@
-set paste
+"set paste
 "set mouse=a
 set showmode
 set tabstop=4
