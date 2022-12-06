@@ -157,16 +157,38 @@
 
     - name: Clone dotfiles
       git:
-        repo: https://github.com/neetjn/dotfiles.git
-        dest: /tmp/dotfiles
+        repo: https://github.com/lroquec/configs.git
+        dest: "{{home_directory}}"
         version: master
         become: no
 
-    - name: Copy dotfiles
-      shell: |
-        cp -r /tmp/dotfiles/* "{{home_directory}}"
-        cp -r /tmp/dotfiles/.* "{{home_directory}}"
-        rm -rf "{{home_directory}}/.git"
-        chown -R "{{host_username}}:{{host_username}} {{home_directory}}"
-        chown -R "{{host_username}}:{{host_username}} {{home_directory}}/.*"
-      ignore_errors: yes
+    - name: Creating a symlink for vim
+      ansible.builtin.file:
+        src: "{{home_directory}}/configs/vimrc"
+        dest: "{{home_directory}}/.vimrc"
+        state: link
+
+    - name: Creating a symlink for vim
+      ansible.builtin.file:
+        src: "{{home_directory}}/configs/vim"
+        dest: "{{home_directory}}/.vim"
+        state: link
+        
+    - name: Creating a symlink for vim
+      ansible.builtin.file:
+        src: "{{home_directory}}/configs/oh-my-zsh"
++       dest: "{{home_directory}}/.oh-my-zsh"
++       state: link
+
+    - name: Creating a symlink for vim
+      ansible.builtin.file:
+        src: "{{home_directory}}/configs/.zprofile"
+        dest: "{{home_directory}}/.zprofile"
+        state: link
+
+    - name: Creating a symlink for vim
+      ansible.builtin.file:
+        src: "{{home_directory}}/configs/.zshrc"
++       dest: "{{home_directory}}/.zshrc"
++       state: link
+
