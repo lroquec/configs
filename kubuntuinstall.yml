@@ -19,7 +19,7 @@
         url: https://packages.microsoft.com/keys/microsoft.asc
         state: present
       become: true
-  
+
     - name: "Add vivaldi apt key"
       ansible.builtin.get_url:
         url: https://repo.vivaldi.com/archive/linux_signing_key.pub
@@ -115,7 +115,7 @@
         - virtualbox
         - vagrant
         - jq
-        - libreoffice
+        - flatpak
         - htop
         - thunderbird
         - preload
@@ -151,10 +151,6 @@
         state: present
         executable: pip3
 
-    - name: Install nix package manager
-      shell: sh -c "$(curl -L https://nixos.org/nix/install)"
-      ignore_errors: true
-
     - name: Disable chsh authentication
       lineinfile:
         dest: /etc/pam.d/chsh
@@ -165,6 +161,7 @@
     - name: Install oh-my-zsh
       shell: sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
       ignore_errors: true
+      become: true
 
     - name: Set zsh as default shell
       shell: chsh -s $(which zsh)
@@ -181,7 +178,7 @@
         repo: https://github.com/lroquec/configs.git
         dest: "{{ ansible_env.HOME }}/configs"
         version: main
-      force: yes
+        force: true
 
     - name: Creating a symlink for vim
       ansible.builtin.file:
@@ -230,7 +227,6 @@
         src: '{{ ansible_env.HOME }}/configs/.zshrc'
         dest: '{{ ansible_env.HOME }}/.zshrc'
         state: link
-      become: true
 
     - name: Install nerd font hack
       ansible.builtin.unarchive:
@@ -243,3 +239,13 @@
       shell: fc-cache -fv
       ignore_errors: yes
       become: true
+
+    - name: Clean apt cache
+      ansible.builtin.apt:
+        clean: yes
+      become: true
+
+    - name: Auto remove unused packages
+      ansible.builtin.apt:
+        autoremove: yes
+        purge: yes
