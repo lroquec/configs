@@ -125,6 +125,14 @@
         - kitty
         - locate
         - tmux
+        - ranger
+        - neofetch
+        - ncdu
+        - trash-cli
+        - cmatrix
+        - peek
+        - autojump
+        - bat
 
     - name: Check Docker Installed
       become: true
