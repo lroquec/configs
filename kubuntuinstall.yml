@@ -136,6 +136,7 @@
         - openvpn
         - network-manager-openvpn
         - x11-xserver-utils
+        - caffeine
 
     - name: Check Docker Installed
       become: true
