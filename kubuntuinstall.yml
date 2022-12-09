@@ -133,6 +133,9 @@
         - peek
         - autojump
         - bat
+        - openvpn
+        - network-manager-openvpn
+        - x11-xserver-utils
 
     - name: Check Docker Installed
       become: true
