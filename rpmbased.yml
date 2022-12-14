@@ -3,23 +3,22 @@
 - name: Configure My Fedora :)
   gather_facts: true
   hosts: all
-  connection: ssh
   vars:
-    ansible_ssh_user: "laura"
-    ansible_ssh_password: "kubiadmin"
     gnomedesktop: false
     nvidia_exists: false
     desktop_env: "@kde-desktop-environment"
+    fedora_version: "37"
   tasks:
     - debug:
         msg: "user: {{ ansible_distribution_major_version }} - fedora major version: {{ ansible_user_id }}"
 
     - name: Speed up dnf
+      become: true
       ansible.builtin.lineinfile:
-        path:  /etc/dnf/dnf.conf # required. The file to modify. Before Ansible 2.3 this option was only usable as I(dest), I(destfile) and I(name).
-        state: present # not required. choices: absent;present. Whether the line should be there or not.
-        line: {{ items }} # not required. The line to insert/replace into the file. Required for C(state=present). If C(backrefs) is set, may contain backreferences that will get expanded with the C(regexp) capture groups if the regexp matches.
-        insertafter: EOF # not required. choices: EOF;*regex*. Used with C(state=present). If specified, the line will be inserted after the last match of specified regular expression. If the first match is required, use(firstmatch=true). A special value is available; C(EOF) for inserting the line at the end of the file. If specified regular expression has no matches, EOF will be used instead. If C(insertbefore) is set, default value C(EOF) will be ignored. If regular expressions are passed to both C(regexp) and C(insertafter), C(insertafter) is only honored if no match for C(regexp) is found. May not be used with C(backrefs) or C(insertbefore).
+        path:  /etc/dnf/dnf.conf
+        state: present
+        line: "{{ item }}"
+        insertafter: EOF
         backup: true
       loop:
         - "max_parallel_downloads=10"
@@ -41,6 +40,7 @@
     - name: Install dependencies (dnf)
       become: true
       ansible.builtin.dnf:
+        state: present 
         name:
           - libdrm
           - libX11-xcb
@@ -48,11 +48,9 @@
           - mesa-libgbm
           - which
           - "{{ desktop_env }}"
-        state: present
 
-    - name: Set desktop environment as default
-      ansible.builtin.command:
-        - 'systemctl set-default graphical.target'
+    - name: configure desktop environment as default
+      ansible.builtin.command: 'systemctl set-default graphical.target'
       become: true
 
     - name: Install VS Code repo (dnf)
@@ -68,6 +66,26 @@
     - name: configure RPM fusion nonfree repo
       ansible.builtin.command: 'dnf install -y https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{{ ansible_distribution_major_version }}.noarch.rpm'
       become: true
+
+    - name: add google-chrome repo
+      become: true
+      ansible.builtin.yum_repository:
+        name: google-chrome
+        description: Google Chrome repo
+        file: google-chrome
+        baseurl: 'https://dl.google.com/linux/chrome/rpm/stable/x86_64'
+        gpgkey: 'https://dl.google.com/linux/linux_signing_key.pub'
+        gpgcheck: true
+
+    - name: add Virtualbox repo
+      become: true
+      ansible.builtin.yum_repository:
+        name: virtualbox
+        description: Virtualbox repo
+        file: virtualbox
+        baseurl: 'http://download.virtualbox.org/virtualbox/rpm/fedora/"{{ fedora_version }}"/\$basearch'
+        gpgkey: 'https://www.virtualbox.org/download/oracle_vbox.asc'
+        gpgcheck: true
 
     - name: configure google-chrome repo
       ansible.builtin.command: dnf config-manager --set-enabled google-chrome
@@ -177,20 +195,28 @@
           'NetworkManager-openconnect',
           'openvpn',
           'NetworkManager-openvpn',
-          'remina',
+          'remmina',
           'libva-utils',
           'libva-vdpau-driver',
-          'vdpauinfo'
+          'vdpauinfo',
+          '@development-tools',
+          'kernel-headers',
+          'kernel-devel',
+          'dkms',
+          'elfutils-libelf-devel',
+          'qt5-qtx11extras',
+          'virtualbox'
         ]
       become: true
       ignore_errors: true
 
     - name: check docker is active
       ansible.builtin.service:
-        name: docker
+        name: dockerd
         state: started
         enabled: true
       become: true
+      ignore_errors: true
 
     - name: Ensure group "docker" exists
       ansible.builtin.group:
@@ -240,6 +266,7 @@
         - gnome-shell-extension-appindicator
         - NetworkManager-openconnect-gnome
         - NetworkManager-openvpn-gnome
+        - remmina-gnome-session
       become: true
       when: gnomedesktop
       ignore_errors: true
@@ -352,5 +379,4 @@
         - org.mozilla.firefox
 
     - name: last steps script
-      ansible.builtin.command:
-        - "bash {{ ansible_env.HOME }}/configs/postinstallfedora.sh"
+      ansible.builtin.command: "bash {{ ansible_env.HOME }}/configs/postinstallfedora.sh"
