@@ -12,10 +12,14 @@
     - debug:
         msg: "user: {{ ansible_distribution_major_version }} - fedora major version: {{ ansible_user_id }}"
 
+    - name: check packages
+      package_facts:
+        manager: auto
+
     - name: Speed up dnf
       become: true
       ansible.builtin.lineinfile:
-        path:  /etc/dnf/dnf.conf
+        path: /etc/dnf/dnf.conf
         state: present
         line: "{{ item }}"
         insertafter: EOF
@@ -30,17 +34,19 @@
       become: true
 
     - name: Add Vivaldi repo
-      ansible.builtin.command: 'dnf config-manager --add-repo https://repo.vivaldi.com/archive/vivaldi-fedora.repo'
       become: true
-
-    - name: Prepare for vscode
-      ansible.builtin.command: 'rpm --import https://packages.microsoft.com/keys/microsoft.asc'
-      become: true
+      ansible.builtin.yum_repository:
+        name: vivaldi
+        description: Vivaldi repo
+        file: vscode
+        baseurl: 'https://repo.vivaldi.com/archive/rpm/$basearch'
+        gpgkey: 'https://repo.vivaldi.com/archive/linux_signing_key.pub'
+        gpgcheck: true
 
     - name: Install dependencies (dnf)
       become: true
       ansible.builtin.dnf:
-        state: present 
+        state: present
         name:
           - libdrm
           - libX11-xcb
@@ -60,7 +66,7 @@
         description: Visual Studio Code repo
         file: vscode
         baseurl: 'https://packages.microsoft.com/yumrepos/vscode'
-        gpgkey: 'https://packages.microsoft.com}/keys/microsoft.asc'
+        gpgkey: 'https://packages.microsoft.com/keys/microsoft.asc'
         gpgcheck: true
 
     - name: configure RPM fusion nonfree repo
@@ -83,25 +89,29 @@
         name: virtualbox
         description: Virtualbox repo
         file: virtualbox
-        baseurl: 'http://download.virtualbox.org/virtualbox/rpm/fedora/"{{ fedora_version }}"/\$basearch'
+        baseurl: 'http://download.virtualbox.org/virtualbox/rpm/fedora/{{ fedora_version }}/$basearch'
         gpgkey: 'https://www.virtualbox.org/download/oracle_vbox.asc'
         gpgcheck: true
 
-    - name: configure google-chrome repo
-      ansible.builtin.command: dnf config-manager --set-enabled google-chrome
+    - name: add Opera repo
       become: true
+      ansible.builtin.yum_repository:
+        name: opera
+        description: Opera repo
+        file: opera
+        baseurl: 'https://rpm.opera.com/rpm'
+        gpgkey: 'https://rpm.opera.com/rpmrepo.key'
+        gpgcheck: false
 
-    - name: add opera key
-      ansible.builtin.command: 'rpm --import https://rpm.opera.com/rpmrepo.key'
+    - name: add docker repo
       become: true
-
-    - name: configure opera repo
-      ansible.builtin.command: dnf config-manager --add-repo https://rpm.opera.com/rpm
-      become: true
-
-    - name: configure docker repo
-      ansible.builtin.command: dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
-      become: true
+      ansible.builtin.yum_repository:
+        name: docker
+        description: docker-ce repo
+        file: docker-ce
+        baseurl: 'https://download.docker.com/linux/fedora/$releasever/$basearch/stable'
+        gpgkey: 'https://download.docker.com/linux/fedora/gpg'
+        gpgcheck: true
 
     - name: clear dnf cache
       ansible.builtin.command: dnf clean all
@@ -111,8 +121,10 @@
       ansible.builtin.command: dnf makecache
       become: true
 
-    - name: Update packages
-      ansible.builtin.command: dnf update -y
+    - name: Upgrade all packages
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
       become: true
 
     - name: Separate Gnome Workspaces
@@ -123,96 +135,91 @@
     - name: Install base packages
       ansible.builtin.dnf:
         state: latest
-        name: [
-          'dnf-plugins-core',
-          'fedora-workstation-repositories',
-          'util-linux-user',
-          'kernel-modules',
-          'gcc',
-          'rpmdevtools',
-          'rpmlint',
-          'make',
-          'cmake',
-          'git'
-        ]
+        name:
+          - 'dnf-plugins-core'
+          - 'fedora-workstation-repositories'
+          - 'util-linux-user'
+          - 'kernel-modules'
+          - 'gcc'
+          - 'rpmdevtools'
+          - 'rpmlint'
+          - 'make'
+          - 'cmake'
+          - 'git'
       become: true
 
     - name: Install Python Packages
       ansible.builtin.dnf:
         state: latest
-        name: [
-          'python3-pip',
-          'python3-dnf',
-          'python3-devel',
-          'python3-libselinux',
-          'python3-virtualenv'
-        ]
+        name:
+          - 'python3-pip'
+          - 'python3-dnf'
+          - 'python3-devel'
+          - 'python3-libselinux'
+          - 'python3-virtualenv'
       become: true
 
     - name: Install utilities
       ansible.builtin.dnf:
         state: latest
-        name: [
-          'vim',
-          'google-chrome-stable',
-          'copyq',
-          'tldr',
-          'htop',
-          'thunderbird',
-          'flameshot',
-          'vlc',
-          'curl',
-          'wget',
-          'gimp',
-          'opera-stable',
-          'transmission',
-          'net-tools',
-          'tcpdump',
-          'locate',
-          'tmux',
-          'ranger',
-          'neofetch',
-          'trash-cli',
-          'cmatrix',
-          'ncdu',
-          'unzip',
-          'p7zip',
-          'p7zip-plugins',
-          'unrar',
-          'google-roboto*',
-          'mozilla-fira*',
-          'fira-code-fonts',
-          'tlp',
-          'tlp-rdw',
-          'vivaldi-stable',
-          'code',
-          'docker-ce',
-          'docker-ce-cli',
-          'containerd.io',
-          'docker-compose-plugin',
-          'rsync',
-          'openconnect',
-          'NetworkManager-openconnect',
-          'openvpn',
-          'NetworkManager-openvpn',
-          'remmina',
-          'libva-utils',
-          'libva-vdpau-driver',
-          'vdpauinfo',
-          '@development-tools',
-          'kernel-headers',
-          'kernel-devel',
-          'dkms',
-          'elfutils-libelf-devel',
-          'qt5-qtx11extras',
-          'virtualbox'
-        ]
+        name:
+          - 'vim'
+          - 'google-chrome-stable'
+          - 'copyq'
+          - 'tldr'
+          - 'htop'
+          - 'thunderbird'
+          - 'flameshot'
+          - 'vlc'
+          - 'curl'
+          - 'wget'
+          - 'gimp'
+          - 'opera-stable'
+          - 'transmission'
+          - 'net-tools'
+          - 'tcpdump'
+          - 'locate'
+          - 'tmux'
+          - 'ranger'
+          - 'neofetch'
+          - 'trash-cli'
+          - 'cmatrix'
+          - 'ncdu'
+          - 'unzip'
+          - 'p7zip'
+          - 'p7zip-plugins'
+          - 'unrar'
+          - 'google-roboto*'
+          - 'mozilla-fira*'
+          - 'fira-code-fonts'
+          - 'tlp'
+          - 'tlp-rdw'
+          - 'vivaldi-stable'
+          - 'code'
+          - 'docker-ce'
+          - 'docker-compose'
+          - 'rsync'
+          - 'openconnect'
+          - 'NetworkManager-openconnect'
+          - 'openvpn'
+          - 'NetworkManager-openvpn'
+          - 'remmina'
+          - 'libva-utils'
+          - 'libva-vdpau-driver'
+          - 'vdpauinfo'
+          - '@development-tools'
+          - 'kernel-headers'
+          - 'kernel-devel'
+          - 'dkms'
+          - 'elfutils-libelf-devel'
+          - 'qt5-qtx11extras'
+          - 'VirtualBox'
       become: true
       ignore_errors: true
 
     - name: check docker is active
       ansible.builtin.service:
-        name: dockerd
+        name: docker
         state: started
         enabled: true
       become: true
@@ -230,20 +237,41 @@
         name: zsh
       become: true
 
-    - name: install oh-my-zsh
-      ansible.builtin.command: 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
+    - name: Check if .oh-my-zsh exists
+      stat:
+        path: ~/.oh-my-zsh
+      register: stat_oh_my_zsh_result
+
+    - name: Cloning oh-my-zsh
+      git:
+        repo=https://github.com/robbyrussell/oh-my-zsh
+        dest=~/.oh-my-zsh
+      when: not stat_oh_my_zsh_result.stat.exists
 
     - name: change shell to zsh
       ansible.builtin.command: chsh -s /usr/bin/zsh
 
-    - name: install `spaceship-prompt`
-      ansible.builtin.command: 'git clone https://github.com/spaceship-prompt/spaceship-prompt.git "$HOME/.oh-my-zsh/themes/spaceship-prompt" --depth=1'
+    - name: Check if spaceship.zsh-theme exists
+      stat:
+        path: ~/.oh-my-zsh/themes/spaceship.zsh-theme
+      register: stat_oh_my_spaceship
 
-    - name: symlink `spaceship.zsh-theme` to `oh-my-zsh` custom themes directory
-      ansible.builtin.command: 'ln -s "$HOME/.oh-my-zsh/themes/spaceship-prompt/spaceship.zsh-theme" "$HOME/.oh-my-zsh/themes/spaceship.zsh-theme"'
+    - name: Cloning spaceship
+      git:
+        repo=https://github.com/spaceship-prompt/spaceship-prompt.git
+        dest=~/.oh-my-zsh/themes/spaceship-prompt/
+      when: not stat_oh_my_spaceship.stat.exists
 
-    - name: install `zsh-autosuggestions` plugin 
-      ansible.builtin.command: 'git clone https://github.com/zsh-users/zsh-autosuggestions $HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions'
+    - name: Create a symbolic link spaceship
+      ansible.builtin.file:
+        src: $HOME/.oh-my-zsh/themes/spaceship-prompt/spaceship.zsh-theme
+        dest: $HOME/.oh-my-zsh/themes/spaceship.zsh-theme
+        state: link
+
+    - name: Cloning oh-my-zsh
+      git:
+        repo=https://github.com/zsh-users/zsh-autosuggestions
+        dest=~/.oh-my-zsh/custom/plugins/zsh-autosuggestions
 
     - name: Install NVIDIA Drivers
       ansible.builtin.dnf:
@@ -285,12 +313,18 @@
       ansible.builtin.command: 'flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo'
       become: true
 
-    - name: Remove libreoffice and firefox
-      ansible.builtin.command: 'dnf remove -y libreoffice* firefox*'
+    - name: Remove all libre office
+      ansible.builtin.dnf:
+        state: absent
+        name: libreoffice*
       become: true
+      when: "'libreoffice-impress' in ansible_facts.packages"
 
     - name: Install only libreoffice draw
-      ansible.builtin.command: 'dnf install -y libreoffice-draw'
+      ansible.builtin.dnf:
+        state: latest
+        name: libreoffice-draw
+      become: true
 
     - name: Clone dotfiles
       git:
@@ -352,6 +386,13 @@
         dest: '{{ ansible_env.HOME }}/.zshrc'
         state: link
 
+    - name: Create fonts directory if it does not exist
+      ansible.builtin.file:
+        path: /usr/local/share/fonts
+        state: directory
+        mode: '0666'
+      become: true
+
     - name: Install nerd font hack
       ansible.builtin.unarchive:
         src: https://github.com/ryanoasis/nerd-fonts/releases/download/v2.2.2/Hack.zip
@@ -377,6 +418,10 @@
         - com.microsoft.Teams
         - org.onlyoffice.desktopeditors
         - org.mozilla.firefox
+      become: true
+      ignore_errors: true
 
     - name: last steps script
       ansible.builtin.command: "bash {{ ansible_env.HOME }}/configs/postinstallfedora.sh"
+      become: true
+      ignore_errors: true
