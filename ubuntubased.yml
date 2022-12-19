@@ -1,0 +1,314 @@
+---
+- hosts: all
+  vars:
+    gnomedesktop: false
+    nvidia_exists: false
+  tasks:
+    - name: "Add vivaldi apt key"
+      ansible.builtin.get_url:
+        url: https://repo.vivaldi.com/archive/linux_signing_key.pub
+        dest: /etc/apt/keyrings/vivaldi.asc
+      become: true
+
+    - name: "Add vivaldi repo"
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/vivaldi.asc] https://repo.vivaldi.com/archive/deb/ stable main"
+        state: present
+      become: true
+
+    - name: "Update repos first"
+      ansible.builtin.apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+      become: true
+
+    - name: "Update system"
+      ansible.builtin.apt: upgrade=dist force_apt_get=yes
+      become: true
+
+    - name: "Check if reboot is needed"
+      register: reboot_required_file
+      stat: path=/var/run/reboot-required get_md5=no
+      become: true
+
+    - name: "Reboot system"
+      ansible.builtin.reboot:
+        msg: "Reboot initiated by Ansible due to kernel updates"
+        connect_timeout: 5
+        reboot_timeout: 300
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime
+      when: reboot_required_file.stat.exists
+      become: true
+
+    - name: "Remove default packages that I do not like"
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        update_cache: yes
+        state: absent
+      become: true
+      loop:
+        - firefox
+        - libreoffice*
+      ignore_errors: true
+
+    - name: "Now install my default packages"
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        update_cache: yes
+      become: true
+      loop:
+        - vim
+        - curl
+        - unzip
+        - wget
+        - git
+        - tldr
+        - procps
+        - file
+        - build-essential
+        - software-properties-common
+        - apt-transport-https
+        - net-tools
+        - tcpdump
+        - zsh
+        - fonts-powerline
+        - copyq
+        - gnupg2
+        - vivaldi-stable
+        - ubuntu-restricted-extras
+        - vlc
+        - python3-pip
+        - libavcodec-extra
+        - bash-completion
+        - gimp
+        - virtualbox
+        - vagrant
+        - jq
+        - flatpak
+        - htop
+        - preload
+        - tlp
+        - tlp-rdw
+        - bleachbit
+        - locate
+        - tmux
+        - ranger
+        - neofetch
+        - ncdu
+        - trash-cli
+        - cmatrix
+        - peek
+        - autojump
+        - bat
+        - openvpn
+        - network-manager-openvpn
+        - x11-xserver-utils
+        - caffeine
+        - remmina
+        - p7zip-full
+        - unrar
+        - libreoffice-draw
+
+    - name: Check Docker Installed
+      become: true
+      shell: which docker
+      register: docker_check
+      ignore_errors: yes
+
+      # will install the latest version of docker
+    - name: Install Docker
+      become: true
+      shell: |
+        curl https://get.docker.com/ | sh
+        systemctl enable docker
+        systemctl start docker
+      when: docker_check.rc == 1
+
+    - name: Setup Docker
+      shell: usermod -aG docker "{{ ansible_user_id }}"
+      when: docker_check.rc == 1
+
+    - name: Install docker compose
+      pip:
+        name: docker-compose
+        state: present
+        executable: pip3
+
+    - name: Disable chsh authentication
+      lineinfile:
+        dest: /etc/pam.d/chsh
+        regexp: '.*pam_shells\.so'
+        line: 'auth sufficient  pam_shells.so'
+      become: true
+
+    - name: Install oh-my-zsh
+      shell: sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
+      ignore_errors: true
+      become: true
+
+    - name: Set zsh as default shell
+      shell: chsh -s $(which zsh)
+
+    - name: Re-enable chsh authentication
+      lineinfile:
+        dest: /etc/pam.d/chsh
+        regexp: '.*pam_shells\.so'
+        line: 'auth required  pam_shells.so'
+      become: true
+
+    - name: Clone dotfiles
+      git:
+        repo: https://github.com/lroquec/configs.git
+        dest: "{{ ansible_env.HOME }}/configs"
+        version: main
+        force: true
+
+    - name: Creating a symlink for vim
+      ansible.builtin.file:
+        src: '{{ ansible_env.HOME }}/configs/vimrc'
+        dest: '{{ ansible_env.HOME }}/.vimrc'
+        state: link
+
+    - name: Delete previous vim folder
+      ansible.builtin.file:
+        path: '{{ ansible_env.HOME }}/.vim'
+        state: absent
+
+    - name: Creating a symlink for vim
+      ansible.builtin.file:
+        src: '{{ ansible_env.HOME }}/configs/vim'
+        dest: '{{ ansible_env.HOME }}/.vim'
+        state: link
+
+    - name: Install vimplug for vim plugins
+      shell: curl -fLo ~/.vim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+      ignore_errors: yes
+
+    - name: Install vim plugins
+      shell: vim -E -s -u "{{ ansible_env.HOME }}/.vimrc" +PlugInstall +qall
+      ignore_errors: yes
+
+    - name: Delete previous ohmyzsh folder
+      ansible.builtin.file:
+        path: '{{ ansible_env.HOME }}/.oh-my-zsh'
+        state: absent
+
+    - name: Creating a symlink for ohmyzsh
+      ansible.builtin.file:
+        src: '{{ ansible_env.HOME }}/configs/oh-my-zsh'
+        dest: '{{ ansible_env.HOME }}/.oh-my-zsh'
+        state: link
+
+    - name: Creating a symlink for zprofile
+      ansible.builtin.file:
+        src: '{{ ansible_env.HOME }}/configs/.zprofile'
+        dest: '{{ ansible_env.HOME }}/.zprofile'
+        state: link
+
+    - name: Delete previous zshrc
+      ansible.builtin.file:
+        path: '{{ ansible_env.HOME }}/.zshrc'
+        state: absent
+
+    - name: Creating a symlink for zshrc
+      ansible.builtin.file:
+        src: '{{ ansible_env.HOME }}/configs/.zshrc'
+        dest: '{{ ansible_env.HOME }}/.zshrc'
+        state: link
+
+    - name: Create fonts directory if it does not exist
+      ansible.builtin.file:
+        path: /usr/local/share/fonts
+        state: directory
+        mode: '0666'
+      become: true
+
+    - name: Install nerd font hack
+      ansible.builtin.unarchive:
+        src: https://github.com/ryanoasis/nerd-fonts/releases/download/v2.2.2/Hack.zip
+        dest: /usr/local/share/fonts/
+        remote_src: true
+      become: true
+
+    - name: Refresh fonts
+      shell: fc-cache -fv
+      ignore_errors: true
+      become: true
+
+    - name: install packages flatpak
+      community.general.flatpak:
+        name: "{{ item }}"
+        state: present
+        method: system
+      loop:
+        - org.telegram.desktop
+        - com.github.eneshecan.WhatsAppForLinux
+        - com.usebottles.bottles
+        - com.bitwarden.desktop
+        - com.microsoft.Teams
+        - org.onlyoffice.desktopeditors
+        - org.mozilla.firefox
+        - com.google.Chrome
+        - org.mozilla.Thunderbird
+        - com.visualstudio.code
+      become: true
+      ignore_errors: true
+
+    - name: install gnome packages via flatpak
+      community.general.flatpak:
+        name: "{{ item }}"
+        state: present
+        method: system
+      loop:
+        - com.mattjakeman.ExtensionManager
+        - org.gnome.Extensions
+      become: true
+      ignore_errors: true
+      when: gnomedesktop
+
+    - name: "Install my default GNOME packages"
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        update_cache: yes
+      become: true
+      loop:
+        - dconf-editor
+        - gnome-tweaks
+        - network-manager-openconnect
+        - network-manager-openconnect-gnome
+        - gnome-software-plugin-flatpak
+        - chrome-gnome-shell
+      when: gnomedesktop
+
+    - name: Another gnome config
+      become: true
+      shell: apt install --install-suggests gnome-software
+      ignore_errors: yes
+      when: gnomedesktop
+
+    - name: Last gnome config
+      become: true
+      shell: gsettings set org.gnome.shell.extensions.dash-to-dock click-action 'minimize'
+      ignore_errors: yes
+      when: gnomedesktop
+
+    - name: Install openconnect for kde
+      become: true
+      shell: snap install openconnect-vpn --edge
+      ignore_errors: yes
+      when: not gnomedesktop
+
+    - name: Install winbox
+      become: true
+      shell: snap install winbox
+      ignore_errors: yes
+
+    - name: Clean apt cache
+      ansible.builtin.apt:
+        clean: yes
+      become: true
+
+    - name: Auto remove unused packages
+      ansible.builtin.apt:
+        autoremove: yes
+        purge: yes
