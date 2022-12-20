@@ -278,6 +278,7 @@
         - network-manager-openconnect-gnome
         - gnome-software-plugin-flatpak
         - chrome-gnome-shell
+        - gnome-screeshot
       when: gnomedesktop
 
     - name: Another gnome config
