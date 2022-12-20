@@ -1,9 +1,13 @@
 ---
 - hosts: all
   vars:
-    gnomedesktop: false
+    gnomedesktop: true
     nvidia_exists: false
   tasks:
+    - name: check packages
+      package_facts:
+        manager: auto
+
     - name: "Add vivaldi apt key"
       ansible.builtin.get_url:
         url: https://repo.vivaldi.com/archive/linux_signing_key.pub
@@ -13,6 +17,12 @@
     - name: "Add vivaldi repo"
       ansible.builtin.apt_repository:
         repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/vivaldi.asc] https://repo.vivaldi.com/archive/deb/ stable main"
+        state: present
+      become: true
+
+    - name: "Add appimage repo"
+      ansible.builtin.apt_repository:
+        repo: "ppa:appimagelauncher-team/stable"
         state: present
       become: true
 
@@ -48,7 +58,9 @@
       become: true
       loop:
         - firefox
-        - libreoffice*
+        - libreoffice-impress
+        - libreoffice-calc
+        - libreoffice-writer
       ignore_errors: true
 
     - name: "Now install my default packages"
@@ -103,17 +115,19 @@
         - openvpn
         - network-manager-openvpn
         - x11-xserver-utils
-        - caffeine
         - remmina
         - p7zip-full
         - unrar
         - libreoffice-draw
+        - containerd
+        - appimagelauncher
 
-    - name: Check Docker Installed
+    - name: Remove docker from system packages
+      ansible.builtin.apt:
+        state: absent
+        name: docker*
       become: true
-      shell: which docker
-      register: docker_check
-      ignore_errors: yes
+      when: "'docker' in ansible_facts.packages"
 
       # will install the latest version of docker
     - name: Install Docker
@@ -122,11 +136,19 @@
         curl https://get.docker.com/ | sh
         systemctl enable docker
         systemctl start docker
-      when: docker_check.rc == 1
+      when: "'docker-ce' not in ansible_facts.packages"
+      ignore_errors: true
+
+    - name: Ensure group "docker" exists
+      ansible.builtin.group:
+        name: docker
+        state: present
+      become: true
 
     - name: Setup Docker
+      become: true
       shell: usermod -aG docker "{{ ansible_user_id }}"
-      when: docker_check.rc == 1
+      when: "'docker-ce' not in ansible_facts.packages"
 
     - name: Install docker compose
       pip:
@@ -134,27 +156,21 @@
         state: present
         executable: pip3
 
-    - name: Disable chsh authentication
-      lineinfile:
-        dest: /etc/pam.d/chsh
-        regexp: '.*pam_shells\.so'
-        line: 'auth sufficient  pam_shells.so'
-      become: true
+    - name: Check if .zshrc exists
+      stat:
+        path: ~/.zshrc
+      register: stat_rc_result
 
-    - name: Install oh-my-zsh
-      shell: sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
-      ignore_errors: true
-      become: true
+    - name: Check if .oh-my-zsh exists
+      stat:
+        path: ~/.oh-my-zsh
+      register: stat_oh_my_zsh_result
 
-    - name: Set zsh as default shell
-      shell: chsh -s $(which zsh)
-
-    - name: Re-enable chsh authentication
-      lineinfile:
-        dest: /etc/pam.d/chsh
-        regexp: '.*pam_shells\.so'
-        line: 'auth required  pam_shells.so'
-      become: true
+    - name: Cloning  oh-my-zsh
+      git:
+        repo=https://github.com/robbyrussell/oh-my-zsh
+        dest=~/.oh-my-zsh
+      when: not stat_oh_my_zsh_result.stat.exists
 
     - name: Clone dotfiles
       git:
@@ -216,6 +232,33 @@
         dest: '{{ ansible_env.HOME }}/.zshrc'
         state: link
 
+    - name: Clone zsh plugin autosuggestions
+      git:
+        repo: https://github.com/zsh-users/zsh-autosuggestions
+        dest: "{{ ansible_env.HOME }}/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
+        version: main
+        force: true
+
+    - name: Clone zsh plugin syntax highlighting
+      git:
+        repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
+        dest: "{{ ansible_env.HOME }}/.oh-my-zsh/custom/plugins/zsh-syntax-highlightings"
+        version: main
+        force: true
+
+    - name: Clone zsh theme
+      git:
+        repo: https://github.com/bhilburn/powerlevel9k.git
+        dest: "{{ ansible_env.HOME }}/.oh-my-zsh/custom/themes/powerlevel9k"
+        version: main
+        force: true
+
+    - name: set default shell for users
+      become: yes
+      user:
+        name: '{{ ansible_user_id }}'
+        shell: /bin/zsh
+
     - name: Create fonts directory if it does not exist
       ansible.builtin.file:
         path: /usr/local/share/fonts
@@ -233,6 +276,10 @@
     - name: Refresh fonts
       shell: fc-cache -fv
       ignore_errors: true
+      become: true
+
+    - name: Enable flatpak
+      ansible.builtin.command: 'flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo'
       become: true
 
     - name: install packages flatpak
@@ -278,13 +325,14 @@
         - network-manager-openconnect-gnome
         - gnome-software-plugin-flatpak
         - chrome-gnome-shell
-        - gnome-screeshot
+        - gnome-screenshot
         - drawing
+        - gnome-weather
       when: gnomedesktop
 
     - name: Another gnome config
       become: true
-      shell: apt install --install-suggests gnome-software
+      shell: apt install -y --install-suggests gnome-software
       ignore_errors: yes
       when: gnomedesktop
 
@@ -307,10 +355,11 @@
 
     - name: Clean apt cache
       ansible.builtin.apt:
-        clean: yes
+        autoclean: yes
       become: true
 
     - name: Auto remove unused packages
       ansible.builtin.apt:
         autoremove: yes
         purge: yes
+      become: true
