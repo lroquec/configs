@@ -279,6 +279,7 @@
         - gnome-software-plugin-flatpak
         - chrome-gnome-shell
         - gnome-screeshot
+        - drawing
       when: gnomedesktop
 
     - name: Another gnome config
