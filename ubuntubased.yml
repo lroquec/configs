@@ -121,6 +121,8 @@
         - libreoffice-draw
         - containerd
         - appimagelauncher
+        - ghostscript
+        - imagemagick
 
     - name: Remove docker from system packages
       ansible.builtin.apt:
@@ -328,6 +330,8 @@
         - gnome-screenshot
         - drawing
         - gnome-weather
+        - gscan2pdf
+        - blanket
       when: gnomedesktop
 
     - name: Another gnome config

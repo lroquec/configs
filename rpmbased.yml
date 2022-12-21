@@ -214,6 +214,8 @@
           - 'elfutils-libelf-devel'
           - 'qt5-qtx11extras'
           - 'VirtualBox'
+          - ghostscript
+          - imagemagick
       become: true
       ignore_errors: true
 
@@ -295,6 +297,8 @@
         - NetworkManager-openconnect-gnome
         - NetworkManager-openvpn-gnome
         - remmina-gnome-session
+        - gscan2pdf
+        - blanket
       become: true
       when: gnomedesktop
       ignore_errors: true
