@@ -4,9 +4,9 @@
   gather_facts: true
   hosts: all
   vars:
-    gnomedesktop: false
+    gnomedesktop: true
     nvidia_exists: false
-    desktop_env: "@kde-desktop-environment"
+    desktop_env: "GNOME"
     fedora_version: "37"
   tasks:
     - debug:
@@ -53,7 +53,7 @@
           - libxshmfence
           - mesa-libgbm
           - which
-          - "{{ desktop_env }}"
+       #   - "{{ desktop_env }}"
 
     - name: configure desktop environment as default
       ansible.builtin.command: 'systemctl set-default graphical.target'
@@ -169,7 +169,6 @@
           - 'tldr'
           - 'htop'
           - 'thunderbird'
-          - 'flameshot'
           - 'vlc'
           - 'curl'
           - 'wget'
@@ -214,8 +213,8 @@
           - 'elfutils-libelf-devel'
           - 'qt5-qtx11extras'
           - 'VirtualBox'
-          - ghostscript
-          - imagemagick
+          - 'ghostscript'
+          - 'ImageMagick'
       become: true
       ignore_errors: true
 
@@ -250,8 +249,11 @@
         dest=~/.oh-my-zsh
       when: not stat_oh_my_zsh_result.stat.exists
 
-    - name: change shell to zsh
-      ansible.builtin.command: chsh -s /usr/bin/zsh
+    - name: set default shell for users
+      become: yes
+      user:
+        name: '{{ ansible_user_id }}'
+        shell: /bin/zsh
 
     - name: Check if spaceship.zsh-theme exists
       stat:
@@ -409,7 +411,7 @@
       ignore_errors: true
       become: true
 
-    - name: install Zoom via flatpak
+    - name: install others via flatpak
       community.general.flatpak:
         name: "{{ item }}"
         state: present
