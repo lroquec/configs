@@ -12,7 +12,9 @@ export ZSH="$HOME/.oh-my-zsh"
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
 #ZSH_THEME="powerlevel9k/powerlevel9k"
 
-ZSH_THEME="gruvbox"
+#ZSH_THEME="gruvbox"
+
+ZSH_THEME="agnoster"
 
 # Prompt Elements
 #POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(os_icon host custom_battery_status ssh root_indicator dir dir_writable vcs)
@@ -117,9 +119,10 @@ source $ZSH/oh-my-zsh.sh
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
+#
 alias tra='sshpass -p 'Admsis1012ayh' ssh -p 2244 laura.roque@212.230.117.171'
 alias mkt='wine64 "/Applications/winbox64.exe"'
 # >>>> Vagrant command completion (start)
-. /opt/vagrant/embedded/gems/2.3.3/gems/vagrant-2.3.3/contrib/bash/completion.sh
+. /opt/vagrant/embedded/gems/2.3.4/gems/vagrant-2.3.4/contrib/bash/completion.sh
 # <<<<  Vagrant command completion (end)
 
