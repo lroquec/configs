@@ -125,4 +125,4 @@ alias mkt='wine64 "/Applications/winbox64.exe"'
 # >>>> Vagrant command completion (start)
 . /opt/vagrant/embedded/gems/2.3.4/gems/vagrant-2.3.4/contrib/bash/completion.sh
 # <<<<  Vagrant command completion (end)
-
+alias sshagent='eval $(ssh-agent) && ssh-add .ssh/id_ed25519'
