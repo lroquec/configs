@@ -1,0 +1,4 @@
+Host dockers
+  Hostname 192.168.50.52
+  IdentityFile ~/.ssh/id_ed25519
+  User laura
